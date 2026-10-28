@@ -85,16 +85,53 @@ _gcd_asm:
         enter   0,0
         mov     dword [_gcd_depth], 0
 
-        ; gcd_inner(a, b, depth), with the public call counted as level 1.
-        push    dword 1
-        push    dword [ebp+12]
-        push    dword [ebp+8]
+        push    dword 1        ; reset depth to 1 for the first call
+        push    dword [ebp+12] ; b
+        push    dword [ebp+8]  ; a
         call    gcd_inner
         add     esp, 12
         leave
         ret
 
+; Recursive Euclidean algorithm. Arguments: a, b, depth.
+gcd_inner:
+        enter   0,0
+        push    ebx
+        push    esi
+        push    edi
 
+        mov     edi, [ebp+16]       ; current depth
+        cmp     edi, [_gcd_depth]   ; if depth > gcd_depth, update gcd_depth
+        jle     .depth_recorded
+        mov     [_gcd_depth], edi   ; it skips moving if depth <= gcd_depth
+.depth_recorded:
+        mov     ebx, [ebp+12]       ; b
+        test    ebx, ebx
+        jz      .base_case
+
+        ; Compute a % b. Inputs are nonnegative, so signed division is safe.
+        mov     eax, [ebp+8]        ; a
+        cdq
+        idiv    ebx
+        mov     esi, edx            ; remainder
+
+        ; gcd(b, a % b, depth + 1)
+        lea     eax, [edi+1]
+        push    eax
+        push    esi
+        push    ebx
+        call    gcd_inner
+        add     esp, 12
+        jmp     .done
+
+.base_case:
+        mov     eax, [ebp+8]        ; gcd(a, 0) = a
+.done:
+        pop     edi
+        pop     esi
+        pop     ebx
+        leave
+        ret
 
         global  _sum_range_asm
 _sum_range_asm:
