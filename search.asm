@@ -64,8 +64,18 @@ _bsearch_asm:
         ; instead, sign-extend with cdq. mov edx, 0 is right only for a
         ; dividend that cannot be negative.
         ;
-
+        ;prepare arguments
+        mov     eax, [ebp+12]
+        sub     eax, 1
+        push    eax [ebp+20]
+        push    dword [ebp+12]
+        call    bsearch_rec
         popa
         mov     eax, 0
         leave
         ret
+bsearch_rec:
+        enter   0, 0
+        leave
+        ret
+        
