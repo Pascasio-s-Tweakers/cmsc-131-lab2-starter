@@ -98,6 +98,28 @@ bsearch_rec:
         add     eax, esi
         mov     [ebp-16], eax   ;store midpoint
 
+        ;Comparison
+        mov     edx, [ebx + eax*4]
+        cmp     edx, [ebp+20]
+        je      .found
+        jl      .right_half
+        jmp     .left_half
+
+.left_half:
+        mov     eax, [ebp-16]
+        dec     eax
+        push    dword [ebp+20]
+        push    eax
+        push    dword [ebp+12]
+        push    dword [ebp+8]
+        call    bsearch_rec
+        add     esp, 16
+        jmp     .finish
+
+.right_half:
+
+
+
 .not_found:
         mov     eax, -1
 .found:
