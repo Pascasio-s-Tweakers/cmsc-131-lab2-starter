@@ -75,21 +75,26 @@ segment .text
         global  _gcd_asm
         extern  _bench_callback
 _gcd_asm:
-        enter   0,0
-        pusha
 
-        ;
         ; TODO: gcd. Count the calls. Reset gcd_depth at entry, then keep
         ; the deepest level reached, with the first call as level 1. Carry
         ; the current level in a register or count it in the global, but
         ; leave the peak behind. bench.c reads gcd_depth after the call
         ; returns, so a counter that returns to zero on exit prints 0.
-        ;
 
-        popa
-        mov     eax, 0
+        enter   0,0
+        mov     dword [_gcd_depth], 0
+
+        ; gcd_inner(a, b, depth), with the public call counted as level 1.
+        push    dword 1
+        push    dword [ebp+12]
+        push    dword [ebp+8]
+        call    gcd_inner
+        add     esp, 12
         leave
         ret
+
+
 
         global  _sum_range_asm
 _sum_range_asm:
