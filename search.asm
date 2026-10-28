@@ -79,10 +79,13 @@ _bsearch_asm:
         leave
         ret
 bsearch_rec:
-        pusha                   ;get registers
+        push    ebp
         mov     ebp, esp
 
         ;registers we'll use
+        push    ebx
+        push    esi
+        push    edi
         sub     esp, 4          ;reserve local mid
 
         mov     ebx, [ebp+8]    ;arr
@@ -127,9 +130,9 @@ bsearch_rec:
         jmp     .finish
 .finish:
         add     esp, 4          ;discard local mid
-        popa
-
-
-
+        pop     edi
+        pop     esi
+        pop     ebx
+        pop     ebp
         ret
         
