@@ -109,17 +109,26 @@ bsearch_rec:
         jmp     .left_half
 
 .left_half:
-        mov     eax, [ebp-16]
+        mov     eax, [ebp-16]   ;mid
         dec     eax
-        push    dword [ebp+20]
-        push    eax
-        push    dword [ebp+12]
-        push    dword [ebp+8]
+        push    dword [ebp+20]  ;key
+        push    eax             ;mid-1
+        push    dword [ebp+12]  ;lo
+        push    dword [ebp+8]   ;arr
         call    bsearch_rec
         add     esp, 16
         jmp     .finish
 
 .right_half:
+        mov     eax, [ebp-16]   ;mid
+        inc     eax
+        push    dword [ebp+20]  ;key
+        push    dword [ebp+16]  ;hi
+        push    eax             ;mid+1
+        push    dword [ebp+8]   ;arr
+        call    bsearch_rec
+        add     esp, 16
+        jmp     .finish
 
 
 
