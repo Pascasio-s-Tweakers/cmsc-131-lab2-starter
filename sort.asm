@@ -58,18 +58,108 @@
 segment .text
         global  _qsort_asm
 _qsort_asm:
-        enter   0,0
-        pusha
+        push    ebp
+        mov     ebp, esp
 
-        ;
-        ; TODO: sort.
-        ;
-        ; Remember the array elements are four bytes, so index with a *4
-        ; scale. The first thing to handle is the empty and single-element
-        ; arrays: n <= 1 sorts itself.
-        ;
+        mov     eax, [ebp+12]
+        cmp     eax, 1
+        jle     .done
 
-        popa
+        dec     eax
+        push    eax
+        push    dword 0
+        push    dword [ebp+8]
+        call    qsort_inner
+        add     esp, 12
+
+.done:
         mov     eax, 0
-        leave
+        pop     ebp
+        ret
+
+qsort_inner:
+        push    ebp
+        mov     ebp, esp
+        push    ebx
+        push    esi
+        push    edi
+        sub     esp, 4
+
+        mov     eax, [ebp+12]
+        cmp     eax, [ebp+16]
+        jge     .done
+
+        push    dword [ebp+16]
+        push    dword [ebp+12]
+        push    dword [ebp+8]
+        call    partition
+        add     esp, 12
+        mov     [ebp-16], eax
+
+        mov     eax, [ebp-16]
+        dec     eax
+        push    eax
+        push    dword [ebp+12]
+        push    dword [ebp+8]
+        call    qsort_inner
+        add     esp, 12
+
+        mov     eax, [ebp-16]
+        inc     eax
+        push    dword [ebp+16]
+        push    eax
+        push    dword [ebp+8]
+        call    qsort_inner
+        add     esp, 12
+
+.done:
+        add     esp, 4
+        pop     edi
+        pop     esi
+        pop     ebx
+        pop     ebp
+        ret
+
+partition:
+        push    ebp
+        mov     ebp, esp
+        push    ebx
+        push    esi
+        push    edi
+
+        mov     ebx, [ebp+8]
+        mov     esi, [ebp+12]
+        dec     esi
+        mov     edi, [ebp+12]
+        mov     ecx, [ebp+16]
+        mov     edx, [ebx+ecx*4]
+
+.loop:
+        cmp     edi, ecx
+        jge     .done
+
+        mov     eax, [ebx+edi*4]
+        cmp     eax, edx
+        jg      .next
+
+        inc     esi
+        mov     eax, [ebx+esi*4]
+        xchg    eax, [ebx+edi*4]
+        mov     [ebx+esi*4], eax
+
+.next:
+        inc     edi
+        jmp     .loop
+
+.done:
+        inc     esi
+        mov     eax, [ebx+esi*4]
+        xchg    eax, [ebx+ecx*4]
+        mov     [ebx+esi*4], eax
+        mov     eax, esi
+
+        pop     edi
+        pop     esi
+        pop     ebx
+        pop     ebp
         ret
