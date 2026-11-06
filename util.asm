@@ -75,19 +75,61 @@ segment .text
         global  _gcd_asm
         extern  _bench_callback
 _gcd_asm:
-        enter   0,0
-        pusha
 
-        ;
         ; TODO: gcd. Count the calls. Reset gcd_depth at entry, then keep
         ; the deepest level reached, with the first call as level 1. Carry
         ; the current level in a register or count it in the global, but
         ; leave the peak behind. bench.c reads gcd_depth after the call
         ; returns, so a counter that returns to zero on exit prints 0.
-        ;
 
-        popa
-        mov     eax, 0
+        enter   0,0
+        mov     dword [_gcd_depth], 0
+
+        push    dword 1        ; reset depth to 1 for the first call
+        push    dword [ebp+12] ; b
+        push    dword [ebp+8]  ; a
+        call    gcd_inner
+        add     esp, 12
+        leave
+        ret
+
+; Recursive Euclidean algorithm. Arguments: a, b, depth.
+gcd_inner:
+        enter   0,0
+        push    ebx
+        push    esi
+        push    edi
+
+        mov     edi, [ebp+16]       ; current depth
+        cmp     edi, [_gcd_depth]   ; if depth > gcd_depth, update gcd_depth
+        jle     .depth_recorded
+        mov     [_gcd_depth], edi   ; it skips moving if depth <= gcd_depth
+.depth_recorded:
+        mov     ebx, [ebp+12]       ; b
+        test    ebx, ebx
+        jz      .base_case
+
+        ; Compute a % b. Inputs are nonnegative, so signed division is safe.
+        mov     eax, [ebp+8]        ; a
+        cdq
+        idiv    ebx
+        mov     esi, edx            ; remainder
+
+        ; gcd(b, a % b, depth + 1)
+        lea     eax, [edi+1]
+        push    eax
+        push    esi
+        push    ebx
+        call    gcd_inner
+        add     esp, 12
+        jmp     .done
+
+.base_case:
+        mov     eax, [ebp+8]        ; gcd(a, 0) = a
+.done:
+        pop     edi
+        pop     esi
+        pop     ebx
         leave
         ret
 
