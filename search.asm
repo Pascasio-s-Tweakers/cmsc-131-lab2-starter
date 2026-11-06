@@ -64,8 +64,84 @@ _bsearch_asm:
         ; instead, sign-extend with cdq. mov edx, 0 is right only for a
         ; dividend that cannot be negative.
         ;
+        ;prepare arguments
+        mov     eax, [ebp+12]
+        dec     eax
+        push    dword [ebp+16]
+        push    eax
+        push    dword 0
+        push    dword [ebp+8]
+        call    bsearch_rec
+        add     esp, 16
 
         popa
         mov     eax, 0
         leave
         ret
+bsearch_rec:
+        push    ebp
+        mov     ebp, esp
+
+        ;registers we'll use
+        push    ebx
+        push    esi
+        push    edi
+        sub     esp, 4          ;reserve local mid
+
+        mov     ebx, [ebp+8]    ;arr
+        mov     esi, [ebp+12]   ;lo
+        mov     edi, [ebp+16]   ;hi
+
+        cmp     esi, edi
+        jg      .not_found
+
+        mov     eax, edi
+        sub     eax, esi
+        shr     eax, 1
+        add     eax, esi
+        mov     [ebp-16], eax   ;store midpoint
+
+        ;Comparison
+        mov     edx, [ebx + eax*4]
+        cmp     edx, [ebp+20]
+        je      .found
+        jl      .right_half
+        jmp     .left_half
+
+.left_half:
+        mov     eax, [ebp-16]   ;mid
+        dec     eax
+        push    dword [ebp+20]  ;key
+        push    eax             ;mid-1
+        push    dword [ebp+12]  ;lo
+        push    dword [ebp+8]   ;arr
+        call    bsearch_rec
+        add     esp, 16
+        jmp     .finish
+
+.right_half:
+        mov     eax, [ebp-16]   ;mid
+        inc     eax
+        push    dword [ebp+20]  ;key
+        push    dword [ebp+16]  ;hi
+        push    eax             ;mid+1
+        push    dword [ebp+8]   ;arr
+        call    bsearch_rec
+        add     esp, 16
+        jmp     .finish
+
+
+
+.not_found:
+        mov     eax, -1
+.found:
+        mov     eax, [ebp-16]   ;returns midpoint
+        jmp     .finish
+.finish:
+        add     esp, 4          ;discard local mid
+        pop     edi
+        pop     esi
+        pop     ebx
+        pop     ebp
+        ret
+        
