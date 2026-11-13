@@ -49,7 +49,6 @@ segment .text
         global  _bsearch_asm
 _bsearch_asm:
         enter   0,0
-        pusha
 
         ;
         ; TODO: search.
@@ -74,8 +73,6 @@ _bsearch_asm:
         call    bsearch_rec
         add     esp, 16
 
-        popa
-        mov     eax, 0
         leave
         ret
 bsearch_rec:
@@ -134,6 +131,7 @@ bsearch_rec:
 
 .not_found:
         mov     eax, -1
+        jmp    .finish
 .found:
         mov     eax, [ebp-16]   ;returns midpoint
         jmp     .finish
