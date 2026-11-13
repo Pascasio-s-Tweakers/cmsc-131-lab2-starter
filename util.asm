@@ -133,20 +133,45 @@ gcd_inner:
         leave
         ret
 
+; Public entry, called from C. It calls bench_callback exactly once, then
+; hands the real work to sum_range_inner, which never calls the callback.
         global  _sum_range_asm
 _sum_range_asm:
         enter   0,0
-        pusha
 
-        ;
-        ; TODO: sum_range. Call bench_callback once, then recurse on
-        ; (lo + 1, hi) and add lo. The base case lo > hi is 0. Put the
-        ; recursion in a second routine that does not call bench_callback.
-        ; Keep every intermediate on the stack. A global counter or
-        ; accumulator here is what breaks reentrancy.
-        ;
+        ; lo and hi stay safe at [ebp+8] and [ebp+12] during the callback,
+        ; so nothing needs saving around it.
+        call    _bench_callback
 
-        popa
-        mov     eax, 0
+        push    dword [ebp+12]      ; hi      (cdecl: last argument first)
+        push    dword [ebp+8]       ; lo
+        call    sum_range_inner
+        add     esp, 8              ; result is already in eax
+        leave
+        ret
+
+; sum_range_inner(lo, hi):
+;     if lo > hi: return 0
+;     return lo + sum_range_inner(lo + 1, hi)
+; Only eax is used, so there are no registers to preserve. Each call reads
+; lo from its own frame, so a nested call cannot overwrite it.
+sum_range_inner:
+        enter   0,0
+
+        mov     eax, [ebp+8]        ; lo
+        cmp     eax, [ebp+12]       ; signed compare with hi
+        jg      .empty
+
+        push    dword [ebp+12]      ; hi      (pushed first)
+        inc     eax
+        push    eax                 ; lo + 1  (pushed last, lands at [ebp+8])
+        call    sum_range_inner
+        add     esp, 8
+        add     eax, [ebp+8]        ; lo + sum(lo + 1, hi)
+        leave
+        ret
+
+.empty:
+        mov     eax, 0              ; an empty range sums to 0
         leave
         ret
