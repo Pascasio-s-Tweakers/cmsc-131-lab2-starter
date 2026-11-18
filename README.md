@@ -1,7 +1,7 @@
 <!--no-pdf-->
 # CMSC 131 Lab 2 Starter
 
-[![lab2-checks](https://github.com/WhiteLicorice/cmsc-131-lab2-starter/actions/workflows/test.yml/badge.svg)](https://github.com/WhiteLicorice/cmsc-131-lab2-starter/actions/workflows/test.yml)
+[![lab2-checks](https://github.com/Pascasio-s-Tweakers/cmsc-131-lab2-starter/actions/workflows/test.yml/badge.svg)](https://github.com/WhiteLicorice/cmsc-131-lab2-starter/actions/workflows/test.yml)
 
 A C-callable library of sort, search, and utility routines in assembly. The manual is the assignment. This file is the repository's own notes.
 
