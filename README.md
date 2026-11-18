@@ -142,32 +142,38 @@ reentrancy demonstration expects two callback calls in total, one per C entry.
 
 ### Measurements
 
-Record actual results after correctness checks pass. The ratio is assembly
-sorting time divided by C sorting time; smaller is better. The harness reports
-the mean of 200 runs, each sorting a fresh copy.
+Measured with `bench --sort` after all 36 checks passed, on Windows (MinGW
+gcc, `-m32`). The ratio is assembly sorting time divided by C sorting time;
+smaller is better. The harness reports the mean of 200 runs, each sorting a
+fresh copy. Timings vary between runs and machines, so treat the ratios as
+orders of magnitude.
 
-| File | Measured ratio |
-|---|---|
-| `random1000.txt` | Pending |
-| `sorted1000.txt` | Pending |
-| `reverse1000.txt` | Pending |
-| `duplicates.txt` | Pending |
-| `identical.txt` | Pending |
+| File | Elements | `qsort_asm` (ms) | C `qsort` (ms) | Measured ratio |
+|---|---|---|---|---|
+| `random1000.txt` | 1000 | 0.037 | 0.044 | 0.85x |
+| `sorted1000.txt` | 1000 | 2.873 | 0.017 | 168.98x |
+| `reverse1000.txt` | 1000 | 1.543 | 0.019 | 82.67x |
+| `duplicates.txt` | 500 | 0.182 | 0.004 | 48.01x |
+| `identical.txt` | 100 | 0.029 | 0.000 | 88.78x |
 
-Last-element Lomuto partitioning produces highly unbalanced partitions on
-already sorted input, causing `O(n^2)` time and `O(n)` recursion depth.
-Reverse-sorted and identical inputs also produce degenerate partitions. The
-measured worst case will be identified from our own results.
+On random input the assembly sort beats C's `qsort`, which pays for a
+function-pointer comparison call per element pair. Every other file is
+degenerate for last-element Lomuto partitioning. The measured worst case is
+`sorted1000.txt`: the pivot is always the maximum, so each partition removes
+one element, giving `O(n^2)` comparisons and `O(n)` recursion depth.
+Reverse-sorted input degenerates the same way. Identical values all satisfy
+`arr[j] <= pivot`, so the pivot always lands at `hi`. The `identical.txt`
+ratio is imprecise because C's time rounds to 0.000 ms at this resolution.
 
-A proposed improvement is median-of-three pivot selection, moving the selected
+A possible improvement is median-of-three pivot selection, moving the selected
 pivot to the last position before Lomuto partitioning. On distinct sorted
 input, this should produce more balanced partitions and reduce growth toward
 `O(n log n)`. At 1,000 elements, roughly 500,000 baseline comparisons versus
 about 10,000 for balanced partitions suggests an order-of-magnitude improvement
-in comparison work; this is an estimate, not a measured speedup. Actual timing
-must be measured. This change does not solve identical-value degeneration under
-the same two-way partition rule. If implemented, report both baseline and
-improved ratios, as the manual requires.
+in comparison work; this is an estimate, not a measured speedup. It does not
+solve identical-value degeneration under the same two-way partition rule; a
+three-way partition would. The group did not implement it, so only the
+baseline ratios above are reported.
 
 ### Timeline
 
