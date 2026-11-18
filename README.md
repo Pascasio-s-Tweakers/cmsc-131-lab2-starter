@@ -234,9 +234,49 @@ did about it.
 
 ### Known issues
 
-
-- 
+- **Quicksort is quadratic on sorted, reverse-sorted, and repeated input.**
+  `sorted1000.txt` runs about 169 times slower than C's `qsort`. Cause:
+  last-element Lomuto partitioning removes one element per partition when the
+  pivot is the maximum or when every element ties with it. The group
+  documented median-of-three as a fix for distinct sorted input (see
+  Measurements) but kept the manual's required scheme.
+- **Deep recursion on degenerate input can exhaust the stack.** Sorted input
+  of `n` elements nests `n` `qsort_inner` frames of 36 bytes each, and
+  `sum_range_asm(lo, hi)` nests `hi - lo + 2` frames of 16 bytes each. The
+  test corpus stays far below the limit (about 36 KB and 16 KB), but arrays or
+  ranges in the tens or hundreds of thousands can overflow a default-sized
+  thread stack. Cause: both routines are recursive by requirement. The group
+  accepted this because the manual forbids an iterative rewrite.
+- **`sum_range_asm` wraps on overflow.** Ranges whose true sum exceeds a
+  signed 32-bit integer return a wrapped value without warning. Cause: plain
+  32-bit `add`. The design notes define the routine only for results that fit
+  in 32 bits.
+- **The README badge points to two repositories.** The badge image uses this
+  fork's workflow, but its link still opens the upstream starter's workflow
+  page.
 
 ### Quirks
 
-- 
+- **`bsearch_asm` may return any matching index among duplicates.** It
+  returns whichever equal element a midpoint lands on first, not necessarily
+  the leftmost. The manual and `bench.c` only require `arr[idx] == key`.
+- **`pusha`/`popa` were removed from `bsearch_rec`.** An early version saved
+  registers with `pusha` and restored them with `popa`, which also restored
+  the old `eax` over the return value. Commit `00914e5` replaced them with
+  explicit `push`/`pop` of `ebx`, `esi`, and `edi`.
+- **`gcd_asm` is not reentrant.** Two overlapping calls would both write the
+  global `gcd_depth`. This is allowed: only `sum_range_asm` must be
+  reentrant, and `gcd_depth` is a diagnostic, not part of the result.
+- **`qsort_inner` saves registers it never uses.** It pushes `ebx`, `esi`,
+  and `edi` to keep the frame layout in the design notes, which costs a few
+  instructions per call but is otherwise harmless. Line 99 of `sort.asm` also
+  reloads `p` immediately after storing it.
+- **Swaps use `xchg` with a memory operand.** `xchg` with memory carries an
+  implicit bus lock, which is slower than a plain three-`mov` swap. The swap
+  is correct, and `partition` also swaps an element with itself when `i == j`.
+- **`qsort_asm` returns 0 in `eax`.** C declares it `void`, so the value is
+  ignored; the wrapper clears `eax` anyway.
+- **The frame setup style differs by file.** `sort.asm` and `bsearch_rec`
+  write `push ebp` / `mov ebp, esp` by hand, while the wrappers in
+  `search.asm` and both routines in `util.asm` use `enter 0,0` and `leave`.
+  The resulting frames are identical.
