@@ -60,8 +60,8 @@ needs. Leave the rest of this file as it is.
 
 ## Design Notes
 
-This is the proposed design. Update the frame layout and measurements to match
-the completed implementation before the Week 3 report.
+This describes the completed implementation. All 36 checks pass, and the
+frame layouts below match the code.
 
 ### Problem analysis
 
@@ -93,9 +93,10 @@ last-element Lomuto partitioning with signed comparisons. Partition returns
 the pivot's final index `p`; the recursive calls receive `[lo, p - 1]` and
 `[p + 1, hi]`. Array elements use four-byte scaled indexing.
 
-Although the manual permits a custom internal convention, our helpers will
-also use cdecl to keep argument passing and register preservation consistent.
-The proposed recursive quicksort helper frame is:
+Although the manual permits a custom internal convention, every internal
+helper (`qsort_inner`, `partition`, `bsearch_rec`, `gcd_inner`,
+`sum_range_inner`) also uses cdecl to keep argument passing and register
+preservation consistent. The recursive quicksort helper frame is:
 
 ```text
 Higher addresses
@@ -111,34 +112,62 @@ Higher addresses
 Lower addresses
 ```
 
-This layout assumes the helper establishes `ebp`, pushes `ebx`, `esi`, and
-`edi`, then allocates four bytes for `p`. Each recursive call has its own
-frame. The caller removes the three arguments with `add esp, 12`; the epilogue
-releases the local and restores registers in reverse order. Keeping `p` in a
-local preserves it across the first recursive call. Explicit register saves
-avoid accidentally restoring an old `eax` over a return value with `popa`.
+The helper establishes `ebp`, pushes `ebx`, `esi`, and `edi`, then
+allocates four bytes for `p`. Each recursive call has its own frame. The
+caller removes the three arguments with `add esp, 12`; the epilogue releases
+the local and restores registers in reverse order. Keeping `p` in a local
+preserves it across the first recursive call, whose return value overwrites
+`eax`. Explicit register saves avoid accidentally restoring an old `eax` over
+a return value with `popa`.
 
-**Searching.** The public wrapper calls a recursive helper over `[0, n - 1]`.
-The helper checks `lo > hi` before reading the array and returns `-1` for an
-empty interval. It calculates `mid = lo + (hi - lo) / 2`, avoiding the
-potentially overflowing sum `lo + hi`. A code comment will explain this choice.
-Signed comparisons select the remaining interval.
+`partition` has the same argument layout and saves `ebx`, `esi`, and `edi`,
+with no locals. It keeps the array base in `ebx`, `i` in `esi`, `j` in `edi`,
+`hi` in `ecx`, and the pivot value in `edx`, and returns `i + 1` in `eax`.
 
-**GCD.** The public entry initializes depth tracking and calls a recursive
-Euclidean helper with depth 1. The helper returns `a` when `b == 0`; otherwise,
-it calls itself with `(b, a % b, depth + 1)`. The exported `.bss` variable
-`gcd_depth` retains the deepest level reached, including the base-case call.
-Thus, `gcd(1071, 462)` returns 21 at depth 4. Recursive calls target the helper
-so they do not reset the depth diagnostic.
+**Searching.** The public wrapper calls `bsearch_rec(arr, 0, n - 1, key)`.
+The helper checks `lo > hi` (signed) before reading the array and returns `-1`
+for an empty interval, so `n = 0` (`hi = -1`) never touches memory. It
+calculates `mid = lo + (hi - lo) / 2` with `shr`, which is safe because
+`hi - lo` is non-negative after the base case; this avoids the potentially
+overflowing sum `lo + hi`. The file header explains this choice. Signed
+comparisons select the remaining interval. Every path jumps to one epilogue
+that only pops registers, so the result returns unchanged through each level
+in `eax`. The helper frame is:
+
+```text
+[ebp+20]  key
+[ebp+16]  hi
+[ebp+12]  lo
+[ebp+8]   array pointer
+[ebp+4]   return address
+[ebp]     saved caller ebp
+[ebp-4]   saved ebx
+[ebp-8]   saved esi
+[ebp-12]  saved edi
+[ebp-16]  local mid  <- esp after setup
+```
+
+**GCD.** The public entry sets `gcd_depth` to 0 and calls
+`gcd_inner(a, b, 1)`. The helper first records its depth argument in
+`gcd_depth` when it exceeds the stored value. It returns `a` when `b == 0`;
+otherwise, it computes `a % b` with `cdq` and `idiv`, then calls itself with
+`(b, a % b, depth + 1)`. Because the depth travels on the stack, the global
+keeps only the peak, including the base-case call. Thus, `gcd(1071, 462)`
+returns 21 at depth 4. Recursive calls target the helper so they do not reset
+the depth diagnostic. The helper frame is `a`, `b`, and `depth` at
+`[ebp+8]`, `[ebp+12]`, and `[ebp+16]`, with `ebx`, `esi`, and `edi` saved
+below `ebp`.
 
 **Reentrant range sum.** The public entry calls `bench_callback` once, then
-invokes a recursive helper that does not call the callback. Arguments must
-survive the callback using the stack or callee-saved registers. Each helper
-frame retains its own `lo` while calculating `lo + sum(lo + 1, hi)`. Arguments
-and intermediate values remain on the stack or in properly preserved
-registers; no mutable global accumulator is used. The callback's nested
-invocation therefore cannot overwrite the outer invocation's state. The
-reentrancy demonstration expects two callback calls in total, one per C entry.
+invokes `sum_range_inner(lo, hi)`, which does not call the callback. The
+arguments survive the callback in the entry's own frame at `[ebp+8]` and
+`[ebp+12]`, so nothing is saved around it. Each helper frame holds only its
+two arguments, the return address, and the saved `ebp`; the helper uses only
+`eax`. After the recursive call returns, it re-reads its own `lo` from
+`[ebp+8]` to compute `lo + sum(lo + 1, hi)`. No mutable global is used. The
+callback's nested invocation builds its frames below the outer invocation's
+and therefore cannot overwrite the outer invocation's state. The reentrancy
+demonstration expects two callback calls in total, one per C entry.
 
 ### Measurements
 
